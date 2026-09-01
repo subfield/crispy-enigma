@@ -1,0 +1,47 @@
+{
+	"folders": [
+		{
+			"name": "landing",
+			"path": "../../../../../frontend/landing"
+		},
+		{
+			"name": "auth",
+			"path": "../../../../../frontend/auth"
+		},
+		{
+			"name": "dashboard",
+			"path": "../../../../../frontend/dashboard"
+		},
+		{
+			"name": "secure-auth",
+			"path": "../../../../../frontend/secure-auth"
+		},
+		{
+			"name": "main",
+			"path": "../../../../main"
+		},
+		{
+			"name": "game",
+			"path": "../../.."
+		},
+		{
+			"name": "mailNw",
+			"path": "../../../../mailNw"
+		},
+		{
+			"name": "cron",
+			"path": "../../../../cron"
+		},
+		{
+			"name": "smink",
+			"path": "../../../../../frontend/smink"
+		},
+		{
+			"path": "../../../../../frontend/smink-admin"
+		},
+		{
+			"path": "../../../../../frontend/admin"
+		}
+	],
+	"settings": {}
+}

@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2023",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "strictBindCallApply": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@game/contracts": ["libs/contracts/src"],
+      "@game/contracts/*": ["libs/contracts/src/*"],
+      "@game/db": ["libs/db/src"],
+      "@game/db/*": ["libs/db/src/*"],
+      "@game/engine": ["libs/engine/src"],
+      "@game/engine/*": ["libs/engine/src/*"],
+      "@game/wallet": ["libs/wallet/src"],
+      "@game/wallet/*": ["libs/wallet/src/*"],
+      "@game/realtime": ["libs/realtime/src"],
+      "@game/realtime/*": ["libs/realtime/src/*"],
+      "@game/cache": ["libs/cache/src"],
+      "@game/cache/*": ["libs/cache/src/*"],
+      "@game/events": ["libs/events/src"],
+      "@game/events/*": ["libs/events/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist"]
+}

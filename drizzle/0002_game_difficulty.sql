@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE "smink_games"
+  ADD COLUMN IF NOT EXISTS "difficulty" integer NOT NULL DEFAULT 0;
+
+COMMIT;
