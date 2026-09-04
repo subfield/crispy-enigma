@@ -20,6 +20,25 @@ import { creditDeposit, flagDepositForReview } from "./credit";
 import { sendDepositCreditedEmail } from "../mail";
 
 const WATCH_STATUSES = ["pending"] as const;
+const DEPOSIT_QUOTE_MS = 60 * 60 * 1000;
+
+function quoteDeadline(
+  metadata: Record<string, unknown> | null | undefined,
+  createdAt: Date,
+) {
+  const raw = metadata?.expiresAt ? Date.parse(String(metadata.expiresAt)) : NaN;
+  if (Number.isFinite(raw)) return raw;
+  const created =
+    createdAt instanceof Date ? createdAt.getTime() : Date.parse(String(createdAt));
+  return (Number.isFinite(created) ? created : Date.now()) + DEPOSIT_QUOTE_MS;
+}
+
+function paymentSeen(metadata: Record<string, unknown> | null | undefined) {
+  return (
+    Number(metadata?.receivedCrypto ?? 0) > 0 ||
+    Number(metadata?.confirmations ?? 0) > 0
+  );
+}
 
 type PendingDeposit = {
   id: string;
@@ -156,7 +175,7 @@ export class DepositWatchService {
     if (!(deposit.coin in COIN_QUOTE)) return;
 
     const meta = deposit.metadata ?? {};
-    const expiresAt = meta.expiresAt ? Date.parse(String(meta.expiresAt)) : NaN;
+    const deadline = quoteDeadline(meta, deposit.createdAt);
     const quoteCoin = deposit.coin as QuoteCoin;
     const required = Number(
       meta.requiredConfirmations ?? COIN_QUOTE[quoteCoin]?.confirmations ?? 3,
@@ -167,30 +186,14 @@ export class DepositWatchService {
         (COIN_QUOTE[quoteCoin] ? matchWindowFor(quoteCoin, expected) : 0),
     );
     const usd = Number(deposit.amount);
-
-    if (Number.isFinite(expiresAt) && Date.now() > expiresAt + 6 * 60 * 60 * 1000) {
-      await this.db
-        .update(sminkTransactions)
-        .set({
-          status: "cancelled",
-          completedAt: new Date(),
-          updatedAt: new Date(),
-          metadata: { ...meta, cancelReason: "expired" },
-        })
-        .where(eq(sminkTransactions.id, deposit.id));
-      await this.notify(deposit, {
-        status: "cancelled",
-        confirmations: Number(meta.confirmations ?? 0),
-        requiredConfirmations: required,
-      });
-      return;
-    }
+    const pastDeadline = Date.now() > deadline;
+    const seenAlready = paymentSeen(meta);
 
     let incoming: IncomingTx[] = [];
+    let lookupFailed = false;
     if (mode === "simulate") {
       const simulated = this.simulatedIncoming(deposit, required);
-      if (!simulated) return;
-      incoming = [simulated];
+      if (simulated) incoming = [simulated];
     } else {
       try {
         incoming = await listIncoming(
@@ -199,10 +202,10 @@ export class DepositWatchService {
           deposit.address,
         );
       } catch (error) {
+        lookupFailed = true;
         this.logger.warn(
           `Chain lookup failed for ${deposit.coin} ${deposit.reference}: ${(error as Error).message}`,
         );
-        return;
       }
     }
 
@@ -218,6 +221,13 @@ export class DepositWatchService {
 
     const match = classified.find((row) => row.kind === "match")?.tx;
     const near = classified.find((row) => row.kind === "review")?.tx;
+
+    if (pastDeadline && !seenAlready && !match && !near) {
+      await this.cancelUnpaid(deposit, meta, required);
+      return;
+    }
+
+    if (lookupFailed) return;
 
     if (!match && near) {
       await this.progress(deposit, near, required, {
@@ -241,7 +251,7 @@ export class DepositWatchService {
     if (!match) return;
 
     const reasons: string[] = [];
-    if (Number.isFinite(expiresAt) && Date.now() > expiresAt) {
+    if (pastDeadline && !seenAlready) {
       reasons.push("expired_payment");
     }
 
@@ -407,6 +417,32 @@ export class DepositWatchService {
       confirmations: tx.confirmations,
       requiredConfirmations: required,
       receivedCrypto: tx.amount,
+    });
+  }
+
+  private async cancelUnpaid(
+    deposit: PendingDeposit,
+    meta: Record<string, unknown>,
+    required: number,
+  ) {
+    await this.db
+      .update(sminkTransactions)
+      .set({
+        status: "cancelled",
+        completedAt: new Date(),
+        updatedAt: new Date(),
+        metadata: { ...meta, cancelReason: "expired" },
+      })
+      .where(
+        and(
+          eq(sminkTransactions.id, deposit.id),
+          eq(sminkTransactions.status, "pending"),
+        ),
+      );
+    await this.notify(deposit, {
+      status: "cancelled",
+      confirmations: Number(meta.confirmations ?? 0),
+      requiredConfirmations: required,
     });
   }
 
